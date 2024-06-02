@@ -167,17 +167,23 @@ public class InfoActivity extends AppCompatActivity {
             }
 
             String bookTitle = title.getText().toString();
-            if(checkReservation()){
-                if(checkDateReservation(bookTitle,year, month, day)){
-                    processReservation(username, bookTitle, year, month, day);
+            if(checkBookifAvailable(bookTitle)){
+                if(checkReservation()){
+                    if(checkDateReservation(bookTitle,year, month, day)){
+                        processReservation(username, bookTitle, year, month, day);
+                    }else{
+                        Toast.makeText(this, "Please Select Other Date", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
                 }else{
-                    Toast.makeText(this, "Please Select Other Date", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Please Return a book first to make a reservation", Toast.LENGTH_SHORT).show();
                     return;
                 }
             }else{
-                Toast.makeText(this, "Please Return a book first to make a reservation", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "The book is currently on a reservation", Toast.LENGTH_SHORT).show();
                 return;
             }
+
 
             // Wait for the reservation process to complete before proceeding
             Executors.newSingleThreadExecutor().execute(() -> {
@@ -258,6 +264,47 @@ public class InfoActivity extends AppCompatActivity {
                         int count = rs.getInt("count");
                         return count == 0;
                     }
+                } catch (SQLException e) {
+                    Log.d("Connection Error", "error", e);
+                }
+                return false;
+            }
+        });
+
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            executorService.shutdown();
+        }
+    }
+
+    public boolean checkBookifAvailable(String title) {
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        Future<Boolean> future = executorService.submit(new Callable<Boolean>() {
+            @Override
+            public Boolean call() {
+                try {
+                    conn = connection.CONN();
+                    String query = "SELECT COUNT(*) as count FROM reservationrecord WHERE title = ? AND status ='reserve'";
+                    PreparedStatement preparedStatement = conn.prepareStatement(query);
+                    preparedStatement.setString(1, title);
+                    ResultSet rs = preparedStatement.executeQuery();
+
+                    if (rs.next()) {
+                        int count = rs.getInt("count");
+                        if(count==0){
+                            return true;
+                        }else{
+                            return false;
+                        }
+                    }else{
+                        return false;
+                    }
+
                 } catch (SQLException e) {
                     Log.d("Connection Error", "error", e);
                 }

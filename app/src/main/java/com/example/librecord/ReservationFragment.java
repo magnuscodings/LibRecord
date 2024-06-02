@@ -70,8 +70,9 @@ public class ReservationFragment extends Fragment {
                     String name = rs.getString("username");
                     String details = rs.getString("title");
                     String status = rs.getString("status");
+                    String date = rs.getString("date");
 
-                    reservationList.add(new ReservationRecord(id, name, details,status));
+                    reservationList.add(new ReservationRecord(id, name, details,status,date));
                 }
 
                 getActivity().runOnUiThread(() -> reservationAdapter.notifyDataSetChanged());

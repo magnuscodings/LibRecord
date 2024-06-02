@@ -5,12 +5,14 @@ public class ReservationRecord {
     private String name;
     private String details;
     private String status;
+    private String date;
 
-    public ReservationRecord(int id, String name, String details,String status) {
+    public ReservationRecord(int id, String name, String details,String status,String date) {
         this.id = id;
         this.name = name;
         this.details = details;
         this.status = status;
+        this.date = date;
     }
 
     public int getId() {
@@ -26,5 +28,8 @@ public class ReservationRecord {
     }
     public String getStatus() {
         return status;
+    }
+    public String getDate() {
+        return date;
     }
 }
