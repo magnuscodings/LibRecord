@@ -168,7 +168,12 @@ public class InfoActivity extends AppCompatActivity {
 
             String bookTitle = title.getText().toString();
             if(checkReservation()){
-                processReservation(username, bookTitle, year, month, day);
+                if(checkDateReservation(bookTitle,year, month, day)){
+                    processReservation(username, bookTitle, year, month, day);
+                }else{
+                    Toast.makeText(this, "Please Select Other Date", Toast.LENGTH_SHORT).show();
+                    return;
+                }
             }else{
                 Toast.makeText(this, "Please Return a book first to make a reservation", Toast.LENGTH_SHORT).show();
                 return;
@@ -186,8 +191,6 @@ public class InfoActivity extends AppCompatActivity {
                     if (checkerErr.equals("good")) {
                         Intent reserveActivity = new Intent(InfoActivity.this, ReservationCompleteActivity.class);
                         startActivity(reserveActivity);
-                    } else {
-                        Toast.makeText(this, "Please Select Other Date", Toast.LENGTH_SHORT).show();
                     }
 
                     dialog.dismiss();
@@ -208,6 +211,7 @@ public class InfoActivity extends AppCompatActivity {
                     conn = connection.CONN();
                     String query = "SELECT COUNT(*) as count FROM reservationrecord WHERE status = 'reserve'";
                     PreparedStatement preparedStatement = conn.prepareStatement(query);
+
                     ResultSet rs = preparedStatement.executeQuery();
                     if (rs.next()) {
                         int count = rs.getInt("count");
@@ -229,6 +233,48 @@ public class InfoActivity extends AppCompatActivity {
             executorService.shutdown();
         }
     }
+
+    public boolean checkDateReservation(String title, int year, int month, int day) {
+        String date = String.format("%04d-%02d-%02d", year, month, day);
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        Future<Boolean> future = executorService.submit(new Callable<Boolean>() {
+            @Override
+            public Boolean call() {
+                try {
+                    conn = connection.CONN();
+                    String query = "SELECT COUNT(*) as count FROM reservationrecord WHERE title = ? AND date = ?";
+                    PreparedStatement preparedStatement = conn.prepareStatement(query);
+                    preparedStatement.setString(1, title);
+                    preparedStatement.setString(2, date);
+                    ResultSet rs = preparedStatement.executeQuery();
+
+                    // Log the query with parameters
+                    String loggedQuery = String.format("Executing query: SELECT COUNT(*) as count FROM reservationrecord WHERE title = '%s' AND date = '%s'", title, date);
+
+                    Log.d("infoActivity","p:"+loggedQuery);
+                    Log.d("infoActivity","p:"+rs);
+                    if (rs.next()) {
+                        int count = rs.getInt("count");
+                        return count == 0;
+                    }
+                } catch (SQLException e) {
+                    Log.d("Connection Error", "error", e);
+                }
+                return false;
+            }
+        });
+
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            executorService.shutdown();
+        }
+    }
+
 
     public void processReservation(String name, String bookTitle, int year, int month, int day) {
         String date = day + "," + month + "," + year;
