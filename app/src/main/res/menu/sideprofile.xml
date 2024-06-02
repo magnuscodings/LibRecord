@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/Account"
+        android:title="Account"
+        android:icon="@drawable/profileblue"/>
+
+    <item
+        android:id="@+id/reservation"
+        android:title="Reservation History"
+        android:icon="@drawable/book"/>
+
+    <item
+        android:id="@+id/setting"
+        android:title="Settings"
+        android:icon="@drawable/setting"/>
+
+    <item
+        android:id="@+id/info"
+        android:title="About Us"
+        android:icon="@drawable/info"/>
+
+    <item
+        android:id="@+id/logout"
+        android:enabled="true"
+        android:title="Log Out"
+        android:icon="@drawable/logout"/>
+</menu>
