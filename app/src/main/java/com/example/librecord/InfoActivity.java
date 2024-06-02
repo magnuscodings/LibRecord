@@ -78,27 +78,49 @@ public class InfoActivity extends AppCompatActivity {
 // Query database for author name based on book title
         ExecutorService executorService1 = Executors.newSingleThreadExecutor();
         executorService1.execute(() -> {
-            try (Connection conn = Connect.CONN()) {
-                String query = "SELECT * FROM books WHERE BookName = ?";
-                PreparedStatement preparedStatement = conn.prepareStatement(query);
-                preparedStatement.setString(1, bookTitle);
-                ResultSet rs = preparedStatement.executeQuery();
+            String query = "SELECT * FROM books WHERE BookName = ?";
+            try (Connection conn = Connect.CONN();
+                 PreparedStatement preparedStatement = conn.prepareStatement(query)) {
 
-                if (rs.next()) {
-                    String authorName = rs.getString("AuthorName");
-                    Log.d("InfoActivity", "Author: " + authorName);
-                    title.setText(rs.getString("BookName"));
-                    author.setText(rs.getString("AuthorName"));
-                    year.setText(rs.getString("Year"));
-                    category.setText(rs.getString("Category"));
-                    publisher.setText(rs.getString("Publisher"));
-                    isbn.setText(rs.getString("ISBN"));
-                    language.setText(rs.getString("Language"));
+                if (bookTitle == null) {
+                    Log.e("InfoActivity", "Book title is null");
+                    return;
+                }
+
+                preparedStatement.setString(1, bookTitle);
+                try (ResultSet rs = preparedStatement.executeQuery()) {
+                    if (rs.next()) {
+                        // Extract data from ResultSet
+                        String rsbookName = rs.getString("BookName");
+                        String rsauthorName = rs.getString("AuthorName");
+                        String rsyear = rs.getString("Year");
+                        String rscategory = rs.getString("Category");
+                        String rspublisher = rs.getString("Publisher");
+                        String rsisbn = rs.getString("ISBN");
+                        String rslanguage = rs.getString("Language");
+
+                        Log.d("InfoActivity", "Author: " + rsauthorName);
+
+                        // Update UI on the main thread
+                        runOnUiThread(() -> {
+                            title.setText(rsbookName);
+                            author.setText(rsauthorName);
+                            year.setText(rsyear);
+                            category.setText(rscategory);
+                            publisher.setText(rspublisher);
+                            isbn.setText(rsisbn);
+                            language.setText(rslanguage);
+                        });
+                    }
                 }
             } catch (SQLException e) {
-                e.printStackTrace();
+                Log.e("InfoActivity", "Database error: ", e);
+            } finally {
+                executorService1.shutdown();
             }
         });
+
+
 
 
 
@@ -199,12 +221,12 @@ public class InfoActivity extends AppCompatActivity {
 
     private void openBookmarkFragment() {
 
-            BookmarkFragment fragment = new BookmarkFragment();
-            FragmentManager fragmentManager = getSupportFragmentManager(); // Or getFragmentManager() if not using support library
-            FragmentTransaction transaction = fragmentManager.beginTransaction();
-            transaction.replace(R.id.activityInfo, fragment); // R.id.fragment_container is the ID of the layout container where the fragment should be placed
-            transaction.addToBackStack(null); // Optional, adds the transaction to the back stack
-            transaction.commit();
+        BookmarkFragment fragment = new BookmarkFragment();
+        FragmentManager fragmentManager = getSupportFragmentManager(); // Or getFragmentManager() if not using support library
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
+        transaction.replace(R.id.activityInfo, fragment); // R.id.fragment_container is the ID of the layout container where the fragment should be placed
+        transaction.addToBackStack(null); // Optional, adds the transaction to the back stack
+        transaction.commit();
 
     }
 }
