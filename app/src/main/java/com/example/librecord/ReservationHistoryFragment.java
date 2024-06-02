@@ -69,10 +69,10 @@ public class ReservationHistoryFragment extends Fragment {
         List<Reservation> reservations = new ArrayList<>();
         try (Connection connection = Connect.CONN();
              Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery("SELECT bookreserved, date FROM reservationhistory")) {
+             ResultSet resultSet = statement.executeQuery("SELECT title, date FROM reservationrecord")) {
 
             while (resultSet.next()) {
-                String bookReserved = resultSet.getString("bookreserved");
+                String bookReserved = resultSet.getString("title");
                 Date reservationDate = resultSet.getDate("date");
                 Date returnDate = calculateReturnDate(reservationDate);
                 reservations.add(new Reservation(bookReserved, reservationDate, returnDate));

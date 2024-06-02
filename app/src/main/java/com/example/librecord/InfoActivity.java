@@ -18,8 +18,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Calendar;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class InfoActivity extends AppCompatActivity {
     TextView title, author, year, category, publisher, isbn, language;
@@ -32,7 +35,8 @@ public class InfoActivity extends AppCompatActivity {
     Connect connection;
     Connection conn;
     String username;
-    private String userId,name,email;
+
+    private String userId, name, email, checkerErr = "good";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,12 +44,10 @@ public class InfoActivity extends AppCompatActivity {
         setContentView(R.layout.activity_info);
         connection = new Connect();
 
-
         SharedPreferences sharedPreferences = getSharedPreferences("userDetails", MODE_PRIVATE);
         userId = sharedPreferences.getString("userId", "");
         email = sharedPreferences.getString("email", "");
         name = sharedPreferences.getString("name", "");
-
 
         user_id = userId;
 
@@ -70,13 +72,11 @@ public class InfoActivity extends AppCompatActivity {
         };
 
         Intent intent = getIntent();
-
         book.setImageResource(bookImages[intent.getIntExtra("id", 0)]);
 
         String bookTitle = intent.getStringExtra("bookTitle");
-        Log.d("InfoActivitiy","bookTitle  "+bookTitle);
+        Log.d("InfoActivity", "bookTitle " + bookTitle);
 
-// Query database for author name based on book title
         ExecutorService executorService1 = Executors.newSingleThreadExecutor();
         executorService1.execute(() -> {
             String query = "SELECT * FROM books WHERE BookName = ?";
@@ -91,7 +91,6 @@ public class InfoActivity extends AppCompatActivity {
                 preparedStatement.setString(1, bookTitle);
                 try (ResultSet rs = preparedStatement.executeQuery()) {
                     if (rs.next()) {
-                        // Extract data from ResultSet
                         String rsbookName = rs.getString("BookName");
                         String rsauthorName = rs.getString("AuthorName");
                         String rsyear = rs.getString("Year");
@@ -102,7 +101,6 @@ public class InfoActivity extends AppCompatActivity {
 
                         Log.d("InfoActivity", "Author: " + rsauthorName);
 
-                        // Update UI on the main thread
                         runOnUiThread(() -> {
                             title.setText(rsbookName);
                             author.setText(rsauthorName);
@@ -121,15 +119,7 @@ public class InfoActivity extends AppCompatActivity {
             }
         });
 
-
-
-
-
-
-
-
         ExecutorService executorService = Executors.newSingleThreadExecutor();
-
         executorService.execute(() -> {
             try {
                 conn = connection.CONN();
@@ -144,9 +134,7 @@ public class InfoActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         });
-        Log.d("InfoActivitiy","username  "+username);
-
-
+        Log.d("InfoActivity", "username " + username);
 
         reserve.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -156,11 +144,7 @@ public class InfoActivity extends AppCompatActivity {
         });
 
         bookmarkButton.setOnClickListener(this::onBookmarkClick);
-
-
-        bookmarkButton.setOnClickListener(this::onBookmarkClick);
     }
-
 
     private void showCustomDatePickerDialog(Intent intent) {
         Dialog dialog = new Dialog(this);
@@ -174,28 +158,77 @@ public class InfoActivity extends AppCompatActivity {
             int day = datePicker.getDayOfMonth();
             int month = datePicker.getMonth();
             int year = datePicker.getYear();
-            Log.d("Resource: ", "" + user_id);
 
             try {
-                Thread.sleep(3000);
                 Toast.makeText(InfoActivity.this, "Please Wait", Toast.LENGTH_SHORT).show();
+                Thread.sleep(3000);
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            String bookTitle = title.getText().toString();
 
-            processReservation(username, bookTitle, year, month, day);
-            Intent reserveActivity = new Intent(InfoActivity.this, ReservationCompleteActivity.class);
-            startActivity(reserveActivity);
-            dialog.dismiss();
+            String bookTitle = title.getText().toString();
+            if(checkReservation()){
+                processReservation(username, bookTitle, year, month, day);
+            }else{
+                Toast.makeText(this, "Please Return a book first to make a reservation", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Wait for the reservation process to complete before proceeding
+            Executors.newSingleThreadExecutor().execute(() -> {
+                try {
+                    Thread.sleep(3000); // Adjust the sleep time as needed for the reservation process to complete
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                runOnUiThread(() -> {
+                    if (checkerErr.equals("good")) {
+                        Intent reserveActivity = new Intent(InfoActivity.this, ReservationCompleteActivity.class);
+                        startActivity(reserveActivity);
+                    } else {
+                        Toast.makeText(this, "Please Select Other Date", Toast.LENGTH_SHORT).show();
+                    }
+
+                    dialog.dismiss();
+                });
+            });
         });
 
         cancelButton.setOnClickListener(v -> dialog.dismiss());
-
         dialog.show();
     }
 
+    public boolean checkReservation() {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        Future<Boolean> future = executorService.submit(new Callable<Boolean>() {
+            @Override
+            public Boolean call() {
+                try {
+                    conn = connection.CONN();
+                    String query = "SELECT COUNT(*) as count FROM reservationrecord WHERE status = 'reserve'";
+                    PreparedStatement preparedStatement = conn.prepareStatement(query);
+                    ResultSet rs = preparedStatement.executeQuery();
+                    if (rs.next()) {
+                        int count = rs.getInt("count");
+                        return count < 3;
+                    }
+                } catch (SQLException e) {
+                    Log.d("Connection Error", "error", e);
+                }
+                return false;
+            }
+        });
 
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            executorService.shutdown();
+        }
+    }
 
     public void processReservation(String name, String bookTitle, int year, int month, int day) {
         String date = day + "," + month + "," + year;
@@ -203,13 +236,17 @@ public class InfoActivity extends AppCompatActivity {
         executorService.execute(() -> {
             try {
                 conn = connection.CONN();
-                String query = "INSERT INTO ReservationRecord (username, title, date) VALUES (\"" +
-                        name + "\", \"" + bookTitle + "\", STR_TO_DATE(\"" + date + "\",\"%d,%m,%Y\"))";
-                Log.d("Connection Error", query);
-                PreparedStatement preparedStatement = conn.prepareStatement(query);
-                preparedStatement.execute();
+                String query = "INSERT INTO reservationrecord (username, title, date) VALUES (?, ?, STR_TO_DATE(?, '%d,%m,%Y'))";
+                try (PreparedStatement preparedStatement = conn.prepareStatement(query)) {
+                    preparedStatement.setString(1, name);
+                    preparedStatement.setString(2, bookTitle);
+                    preparedStatement.setString(3, date);
+                    preparedStatement.execute();
+                    checkerErr = "good";
+                }
             } catch (SQLException e) {
-                Log.d("Connection Error", "error");
+                checkerErr = "error";
+                Log.d("Connection Error", "error", e);
             }
         });
     }
@@ -224,7 +261,7 @@ public class InfoActivity extends AppCompatActivity {
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         executorService.execute(() -> {
             try {
-                MySQLHelperBookmark.addBookmark(user_id, bookTitle,name);
+                MySQLHelperBookmark.addBookmark(user_id, bookTitle, name);
                 runOnUiThread(() -> Toast.makeText(InfoActivity.this, "Bookmark Saved", Toast.LENGTH_SHORT).show());
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -234,13 +271,11 @@ public class InfoActivity extends AppCompatActivity {
     }
 
     private void openBookmarkFragment() {
-
         BookmarkFragment fragment = new BookmarkFragment();
-        FragmentManager fragmentManager = getSupportFragmentManager(); // Or getFragmentManager() if not using support library
+        FragmentManager fragmentManager = getSupportFragmentManager();
         FragmentTransaction transaction = fragmentManager.beginTransaction();
-        transaction.replace(R.id.activityInfo, fragment); // R.id.fragment_container is the ID of the layout container where the fragment should be placed
-        transaction.addToBackStack(null); // Optional, adds the transaction to the back stack
+        transaction.replace(R.id.activityInfo, fragment);
+        transaction.addToBackStack(null);
         transaction.commit();
-
     }
 }
