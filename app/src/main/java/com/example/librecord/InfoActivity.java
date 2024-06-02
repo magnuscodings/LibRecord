@@ -5,6 +5,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
 import android.app.DatePickerDialog;
+import android.app.Dialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -145,43 +146,56 @@ public class InfoActivity extends AppCompatActivity {
         });
         Log.d("InfoActivitiy","username  "+username);
 
+
+
         reserve.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                calendar = Calendar.getInstance();
-                int day = calendar.get(Calendar.DAY_OF_MONTH);
-                int month = calendar.get(Calendar.MONTH);
-                int year = calendar.get(Calendar.YEAR);
-                datePickerDialog = new DatePickerDialog(InfoActivity.this, R.style.my_dialog_theme, new DatePickerDialog.OnDateSetListener() {
-                    @Override
-                    public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
-                        Log.d("Resource: ", "" + user_id);
-                        runOnUiThread(() -> {
-                            try {
-                                Thread.sleep(3000);
-                                Toast.makeText(InfoActivity.this, "Please Wait", Toast.LENGTH_SHORT).show();
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-
-                            processReservation(
-                                    username,
-                                    intent.getStringExtra("title"),
-                                    year,
-                                    month,
-                                    dayOfMonth
-                            );
-                            Intent reserveActivity = new Intent(InfoActivity.this, ReservationCompleteActivity.class);
-                            startActivity(reserveActivity);
-                        });
-                    }
-                }, year, month, day);
-                datePickerDialog.show();
+                showCustomDatePickerDialog(intent);
             }
         });
 
         bookmarkButton.setOnClickListener(this::onBookmarkClick);
+
+
+        bookmarkButton.setOnClickListener(this::onBookmarkClick);
     }
+
+
+    private void showCustomDatePickerDialog(Intent intent) {
+        Dialog dialog = new Dialog(this);
+        dialog.setContentView(R.layout.dialog_date_picker);
+
+        DatePicker datePicker = dialog.findViewById(R.id.datePicker);
+        Button confirmButton = dialog.findViewById(R.id.confirmButton);
+        Button cancelButton = dialog.findViewById(R.id.cancelButton);
+
+        confirmButton.setOnClickListener(v -> {
+            int day = datePicker.getDayOfMonth();
+            int month = datePicker.getMonth();
+            int year = datePicker.getYear();
+            Log.d("Resource: ", "" + user_id);
+
+            try {
+                Thread.sleep(3000);
+                Toast.makeText(InfoActivity.this, "Please Wait", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            String bookTitle = title.getText().toString();
+
+            processReservation(username, bookTitle, year, month, day);
+            Intent reserveActivity = new Intent(InfoActivity.this, ReservationCompleteActivity.class);
+            startActivity(reserveActivity);
+            dialog.dismiss();
+        });
+
+        cancelButton.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
+    }
+
+
 
     public void processReservation(String name, String bookTitle, int year, int month, int day) {
         String date = day + "," + month + "," + year;
